@@ -6,15 +6,7 @@ import random
 
 
 class LanguageProcessingTestSystem:
-    def __init__(
-        self,
-        root,
-        window_size=(800, 600),
-        font_size=16,
-        font_family="Microsoft JhengHei",
-        stage_order=["practice", "formal", "reward", "penalty", "reward_penalty"],
-        total_answers=5,  # 每個區段的總題數
-    ):
+    def __init__(self, root, window_size=(800, 600), font_size=16, font_family="Microsoft JhengHei", stage_order=["formal", "reward", "penalty", "reward_penalty"], total_answers=5):
         self.root = root
         self.root.title("詞彙判斷試驗系統")
         self.root.attributes("-fullscreen", True)  # 設置全屏顯示
@@ -27,15 +19,32 @@ class LanguageProcessingTestSystem:
         self.font = (font_family, font_size)  # 使用指定字體
 
         self.words = {
-            "a": ["豆腐", "香菇", "菠菜"],
-            "l": ["一一", "二二", "三三", "四四"],
-            "space": ["雞蛋"],
+            "a": ["豆腐", "香菇", "菠菜"],  # 真詞
+            "l": ["一一", "二二", "三三", "四四"],  # 假詞
+            "space": ["雞蛋", "雞心", "雞胗"],  # PM target
         }
+        self.true_words = set(self.words["a"])
+        self.false_words = set(self.words["l"])
+        self.pm_targets = set(self.words["space"])
+
         self.correct_answers = 0
         self.total_answers = total_answers  # 每個區段的總題數
         self.current_question_count = 0  # 當前已回答的問題數
         self.timeout_id = None
         self.current_stage_index = 0
+
+        # 計數器
+        self.true_word_count = 0
+        self.false_word_count = 0
+        self.pm_target_count = 0
+        self.true_word_correct = 0
+        self.false_word_correct = 0
+        self.pm_target_correct = 0
+
+        # 答對率
+        self.true_word_accuracy = 0
+        self.false_word_accuracy = 0
+        self.pm_target_accuracy = 0
 
         # GUI設置
         self.setup_gui()
@@ -79,6 +88,7 @@ class LanguageProcessingTestSystem:
 
     def run_practice_instructions(self):
         """顯示練習指導語"""
+        print(f'run_practice_instructions')
         # 清除所有現有的窗口內容
         for widget in self.root.winfo_children():
             widget.pack_forget()
@@ -124,15 +134,31 @@ class LanguageProcessingTestSystem:
 
         self.root.unbind("<Key>")
         key = event.keysym.lower()
-        correct_key = None
 
-        for k, v in self.words.items():
-            if self.current_word in v:
-                correct_key = k
-                break
-
-        if key == correct_key:
-            self.correct_answers += 1
+        if self.current_word in self.true_words:
+            self.true_word_count += 1
+            if key == "a":
+                self.true_word_correct += 1
+            self.true_word_accuracy = self.true_word_correct / self.true_word_count
+            print(f'self.true_word_count: {self.true_word_count}')
+            print(f'self.true_word_correct: {self.true_word_correct}')
+            print(f'True word accuracy: {self.true_word_accuracy:.2%}')
+        elif self.current_word in self.false_words:
+            self.false_word_count += 1
+            if key == "l":
+                self.false_word_correct += 1
+            self.false_word_accuracy = self.false_word_correct / self.false_word_count
+            print(f'self.false_word_count: {self.false_word_count}')
+            print(f'self.false_word_correct: {self.false_word_correct}')
+            print(f'False word accuracy: {self.false_word_accuracy:.2%}')
+        elif self.current_word in self.pm_targets:
+            self.pm_target_count += 1
+            if key == "space":
+                self.pm_target_correct += 1
+            self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
+            print(f'self.pm_target_count: {self.pm_target_count}')
+            print(f'self.pm_target_correct: {self.pm_target_correct}')
+            print(f'PM target accuracy: {self.pm_target_accuracy:.2%}')
 
         self.current_question_count += 1
         self.show_next_word(stage)
@@ -142,6 +168,25 @@ class LanguageProcessingTestSystem:
         if self.timeout_id is not None:
             self.timeout_id = None
             self.root.unbind("<Key>")
+
+        if self.current_word in self.true_words:
+            self.true_word_count += 1
+            self.true_word_accuracy = self.true_word_correct / self.true_word_count
+            print(f'self.true_word_count: {self.true_word_count}')
+            print(f'self.true_word_correct: {self.true_word_correct}')
+            print(f'True word accuracy: {self.true_word_accuracy:.2%}')
+        elif self.current_word in self.false_words:
+            self.false_word_count += 1
+            self.false_word_accuracy = self.false_word_correct / self.false_word_count
+            print(f'self.false_word_count: {self.false_word_count}')
+            print(f'self.false_word_correct: {self.false_word_correct}')
+            print(f'False word accuracy: {self.false_word_accuracy:.2%}')
+        elif self.current_word in self.pm_targets:
+            self.pm_target_count += 1
+            self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
+            print(f'self.pm_target_count: {self.pm_target_count}')
+            print(f'self.pm_target_correct: {self.pm_target_correct}')
+            print(f'PM target accuracy: {self.pm_target_accuracy:.2%}')
 
         self.current_question_count += 1
         self.show_next_word(stage)
@@ -164,9 +209,13 @@ class LanguageProcessingTestSystem:
 
     def end_practice(self):
         """結束練習"""
-        accuracy = self.correct_answers / self.total_answers
-        if accuracy < self.accuracy_threshold:
-            self.reset_counters()
+        true_word_accuracy = self.true_word_correct / self.true_word_count if self.true_word_count else 0
+        false_word_accuracy = self.false_word_correct / self.false_word_count if self.false_word_count else 0
+        pm_target_accuracy = self.pm_target_correct / self.pm_target_count if self.pm_target_count else 0
+        
+        self.reset_counters()
+        
+        if true_word_accuracy < self.accuracy_threshold or false_word_accuracy < self.accuracy_threshold:
             self.run_practice_instructions()
         else:
             self.start_next_stage()
@@ -181,14 +230,8 @@ class LanguageProcessingTestSystem:
         if self.current_stage_index < len(self.stage_order):
             stage = self.stage_order[self.current_stage_index]
             self.current_stage_index += 1
-            if stage == "practice":
-                self.show_instructions("practice", 
-                    "請判斷螢幕上的詞彙是否為真實存在的詞彙，\n"
-                    "真實的詞彙請按a，非真詞彙請按l，\n"
-                    "然而，每當詞彙注音含有「歌、機」時，\n"
-                    "請您按下空白建。\n"
-                    "若您了解此實驗的程序請按enter鍵開始。")
-            elif stage == "formal":
+            if stage == "formal":
+                print('formal')
                 self.show_instructions("formal", 
                     "請判斷螢幕上的詞彙是否為真實存在的詞彙，\n"
                     "真實的詞彙請按a，非真詞彙請按l，\n"
@@ -196,6 +239,7 @@ class LanguageProcessingTestSystem:
                     "請您按下空白建。\n"
                     "若您了解此實驗的程序請按enter鍵開始。")
             elif stage == "reward":
+                print('reward')
                 self.show_instructions("reward", 
                     "請判斷螢幕上的詞彙是否為真實存在的詞彙，\n"
                     "真實的詞彙請按a，非真詞彙請按l，\n"
@@ -205,6 +249,7 @@ class LanguageProcessingTestSystem:
                     "會顯示您獲得10元，且會累計顯示於左上角，\n"
                     "若您了解此實驗的程序請按enter鍵開始。")
             elif stage == "penalty":
+                print('penalty')
                 self.show_instructions("penalty", 
                     "請判斷螢幕上的詞彙是否為真實存在的詞彙，\n"
                     "真實的詞彙請按a，非真詞彙請按l，\n"
@@ -214,6 +259,7 @@ class LanguageProcessingTestSystem:
                     "會顯示您被扣除10元，且會累計顯示於左上角，\n"
                     "若您了解此實驗的程序請按enter鍵開始。")
             elif stage == "reward_penalty":
+                print('reward_penalty')
                 self.show_instructions("reward_penalty", 
                     "請判斷螢幕上的詞彙是否為真實存在的詞彙，\n"
                     "真實的詞彙請按a，非真詞彙請按l，\n"
@@ -287,6 +333,12 @@ class LanguageProcessingTestSystem:
         """重置計數器"""
         self.correct_answers = 0
         self.current_question_count = 0
+        self.true_word_count = 0
+        self.false_word_count = 0
+        self.pm_target_count = 0
+        self.true_word_correct = 0
+        self.false_word_correct = 0
+        self.pm_target_correct = 0
 
     def save_results(self):
         """保存結果"""
@@ -296,10 +348,13 @@ class LanguageProcessingTestSystem:
             "日期": [datetime.datetime.now().strftime("%Y-%m-%d")],
             "正確回答數": [self.correct_answers],
             "總回答數": [self.total_answers],
-            "正確率": [self.correct_answers / self.total_answers * 100]
+            "正確率": [self.correct_answers / self.total_answers * 100],
+            "真詞正確率": [self.true_word_correct / self.true_word_count * 100 if self.true_word_count else 0],
+            "假詞正確率": [self.false_word_correct / self.false_word_count * 100 if self.false_word_count else 0],
+            "PM target正確率": [self.pm_target_correct / self.pm_target_count * 100 if self.pm_target_count else 0]
         }
         df = pd.DataFrame(data)
-        df.to_excel(f"{self.participant_name}_results.xlsx", index=False)
+        df.to_excel(f"{self.group}_{self.participant_name}_results.xlsx", index=False)
         messagebox.showinfo("結果已保存", "結果已保存到Excel文件中。")
 
 
@@ -310,7 +365,7 @@ if __name__ == "__main__":
         window_size=(1024, 768),
         font_size=32,
         font_family="Microsoft JhengHei",
-        stage_order=["practice", "formal", "reward", "penalty", "reward_penalty"],
+        stage_order=["formal", "reward", "penalty", "reward_penalty"],
         total_answers=5,
     )
     root.mainloop()
