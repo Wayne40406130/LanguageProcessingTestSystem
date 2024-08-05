@@ -6,7 +6,7 @@ import random
 
 
 class LanguageProcessingTestSystem:
-    def __init__(self, root, window_size=(800, 600), font_size=16, font_family="Microsoft JhengHei", stage_order=["formal", "reward", "penalty", "reward_penalty"], total_answers=5):
+    def __init__(self, root, window_size=(800, 600), font_size=16, font_family="Microsoft JhengHei", stage_order=["formal", "reward", "penalty", "reward_penalty"]):
         self.root = root
         self.root.title("詞彙判斷試驗系統")
         self.root.attributes("-fullscreen", True)  # 設置全屏顯示
@@ -28,7 +28,6 @@ class LanguageProcessingTestSystem:
         self.pm_targets = set(self.words["space"])
 
         self.correct_answers = 0
-        self.total_answers = total_answers  # 每個區段的總題數
         self.current_question_count = 0  # 當前已回答的問題數
         self.timeout_id = None
         self.current_stage_index = 0
@@ -46,8 +45,39 @@ class LanguageProcessingTestSystem:
         self.false_word_accuracy = 0
         self.pm_target_accuracy = 0
 
+        # PM target 指定出現順序
+        self.pm_target_order = {
+            "雞蛋": 2
+        }
+
+        # 單詞清單，按指定順序排好
+        self.word_list = self.create_word_list()
+
         # GUI設置
         self.setup_gui()
+
+    def create_word_list(self):
+        word_list = []
+        for word in self.words["a"]:
+            word_list.append((word, "a"))
+        for word in self.words["l"]:
+            word_list.append((word, "l"))
+        for word in self.words["space"]:
+            word_list.append((word, "space"))
+
+        # 將 PM target 移到指定的位置
+        for target, pos in self.pm_target_order.items():
+            if (target, "space") in word_list:
+                word_list.remove((target, "space"))
+                word_list.insert(pos - 1, (target, "space"))
+
+        random.shuffle(word_list)
+        # 確保 PM target 在指定位置後打亂其他詞彙
+        for target, pos in sorted(self.pm_target_order.items(), key=lambda item: item[1]):
+            word_list.remove((target, "space"))
+            word_list.insert(pos - 1, (target, "space"))
+
+        return word_list
 
     def exit_fullscreen(self, event=None):
         """退出全屏"""
@@ -106,25 +136,42 @@ class LanguageProcessingTestSystem:
         self.instructions_label.pack(expand=True)
 
         # 綁定Enter鍵事件以開始練習
-        self.root.bind("<Return>", self.start_practice)
+        self.root.bind("<Return>", self.show_any_key_screen)
+
+    def show_any_key_screen(self, event):
+        """顯示按任意鍵開始屏幕"""
+        self.root.unbind("<Return>")
+        for widget in self.root.winfo_children():
+            widget.pack_forget()
+
+        self.instructions_label = tk.Label(
+            self.root,
+            text="按任意鍵開始",
+            font=self.font,
+        )
+        self.instructions_label.pack(expand=True)
+
+        self.root.bind("<Key>", self.start_practice)
 
     def start_practice(self, event):
         """開始練習"""
-        self.root.unbind("<Return>")
+        self.root.unbind("<Key>")
         self.run_practice()
 
     def run_practice(self):
         """運行練習"""
-        self.show_random_word(stage="practice")
+        self.word_list = self.create_word_list()  # 重置詞彙列表
+        self.show_next_word(stage="practice")
 
-    def show_random_word(self, stage):
-        """顯示隨機單詞"""
-        self.current_word = random.choice(
-            [word for key in self.words for word in self.words[key]]
-        )
-        self.instructions_label.config(text=self.current_word, font=self.font)
-        self.root.bind("<Key>", lambda event: self.check_answer(event, stage))
-        self.timeout_id = self.root.after(3000, lambda: self.check_answer_timeout(stage))
+    def show_next_word(self, stage):
+        """顯示下一個單詞"""
+        if self.word_list:
+            self.current_word, self.current_key = self.word_list.pop(0)
+            self.instructions_label.config(text=self.current_word, font=self.font)
+            self.root.bind("<Key>", lambda event: self.check_answer(event, stage))
+            self.timeout_id = self.root.after(3000, lambda: self.check_answer_timeout(stage))
+        else:
+            self.end_stage(stage)
 
     def check_answer(self, event, stage):
         """檢查答案"""
@@ -160,7 +207,6 @@ class LanguageProcessingTestSystem:
             print(f'self.pm_target_correct: {self.pm_target_correct}')
             print(f'PM target accuracy: {self.pm_target_accuracy:.2%}')
 
-        self.current_question_count += 1
         self.show_next_word(stage)
 
     def check_answer_timeout(self, stage):
@@ -188,34 +234,28 @@ class LanguageProcessingTestSystem:
             print(f'self.pm_target_correct: {self.pm_target_correct}')
             print(f'PM target accuracy: {self.pm_target_accuracy:.2%}')
 
-        self.current_question_count += 1
         self.show_next_word(stage)
 
-    def show_next_word(self, stage):
-        """顯示下一個單詞"""
-        if self.current_question_count < self.total_answers:
-            self.show_random_word(stage)
-        else:
-            if stage == "practice":
-                self.end_practice()
-            elif stage == "formal":
-                self.end_formal_stage()
-            elif stage == "reward":
-                self.end_reward_stage()
-            elif stage == "penalty":
-                self.end_penalty_stage()
-            elif stage == "reward_penalty":
-                self.end_reward_penalty_stage()
+    def end_stage(self, stage):
+        """結束階段"""
+        if stage == "practice":
+            self.end_practice()
+        elif stage == "formal":
+            self.end_formal_stage()
+        elif stage == "reward":
+            self.end_reward_stage()
+        elif stage == "penalty":
+            self.end_penalty_stage()
+        elif stage == "reward_penalty":
+            self.end_reward_penalty_stage()
 
     def end_practice(self):
         """結束練習"""
         true_word_accuracy = self.true_word_correct / self.true_word_count if self.true_word_count else 0
         false_word_accuracy = self.false_word_correct / self.false_word_count if self.false_word_count else 0
-        pm_target_accuracy = self.pm_target_correct / self.pm_target_count if self.pm_target_count else 0
-        
-        self.reset_counters()
         
         if true_word_accuracy < self.accuracy_threshold or false_word_accuracy < self.accuracy_threshold:
+            self.reset_counters()
             self.run_practice_instructions()
         else:
             self.start_next_stage()
@@ -277,14 +317,28 @@ class LanguageProcessingTestSystem:
     def show_instructions(self, stage, instructions):
         """顯示每個階段的指導語"""
         self.instructions_label.config(text=instructions, font=self.font)
-        self.root.bind("<Return>", lambda event: self.start_stage(event, stage))
+        self.root.bind("<Return>", lambda event: self.show_any_key_screen_next(event, stage))
+
+    def show_any_key_screen_next(self, event, stage):
+        """顯示按任意鍵開始屏幕"""
+        self.root.unbind("<Return>")
+        for widget in self.root.winfo_children():
+            widget.pack_forget()
+
+        self.instructions_label = tk.Label(
+            self.root,
+            text="按任意鍵開始",
+            font=self.font,
+        )
+        self.instructions_label.pack(expand=True)
+
+        self.root.bind("<Key>", lambda event: self.start_stage(event, stage))
 
     def start_stage(self, event, stage):
         """開始階段"""
-        self.root.unbind("<Return>")
-        if stage == "practice":
-            self.run_practice()
-        elif stage == "formal":
+        self.root.unbind("<Key>")
+        self.word_list = self.create_word_list()  # 重置詞彙列表
+        if stage == "formal":
             self.run_formal_stage()
         elif stage == "reward":
             self.run_reward_stage()
@@ -296,7 +350,7 @@ class LanguageProcessingTestSystem:
     def run_formal_stage(self):
         """運行正式測試階段"""
         self.reset_counters()
-        self.show_random_word(stage="formal")
+        self.show_next_word(stage="formal")
 
     def end_formal_stage(self):
         """結束正式測試階段"""
@@ -305,7 +359,7 @@ class LanguageProcessingTestSystem:
     def run_reward_stage(self):
         """運行獎勵階段"""
         self.reset_counters()
-        self.show_random_word(stage="reward")
+        self.show_next_word(stage="reward")
 
     def end_reward_stage(self):
         """結束獎勵階段"""
@@ -314,7 +368,7 @@ class LanguageProcessingTestSystem:
     def run_penalty_stage(self):
         """運行懲罰階段"""
         self.reset_counters()
-        self.show_random_word(stage="penalty")
+        self.show_next_word(stage="penalty")
 
     def end_penalty_stage(self):
         """結束懲罰階段"""
@@ -323,7 +377,7 @@ class LanguageProcessingTestSystem:
     def run_reward_penalty_stage(self):
         """運行獎懲階段"""
         self.reset_counters()
-        self.show_random_word(stage="reward_penalty")
+        self.show_next_word(stage="reward_penalty")
 
     def end_reward_penalty_stage(self):
         """結束獎懲階段"""
@@ -347,8 +401,8 @@ class LanguageProcessingTestSystem:
             "組別": [self.group],
             "日期": [datetime.datetime.now().strftime("%Y-%m-%d")],
             "正確回答數": [self.correct_answers],
-            "總回答數": [self.total_answers],
-            "正確率": [self.correct_answers / self.total_answers * 100],
+            "總回答數": [self.true_word_count + self.false_word_count + self.pm_target_count],
+            "正確率": [self.correct_answers / (self.true_word_count + self.false_word_count + self.pm_target_count) * 100],
             "真詞正確率": [self.true_word_correct / self.true_word_count * 100 if self.true_word_count else 0],
             "假詞正確率": [self.false_word_correct / self.false_word_count * 100 if self.false_word_count else 0],
             "PM target正確率": [self.pm_target_correct / self.pm_target_count * 100 if self.pm_target_count else 0]
@@ -366,6 +420,5 @@ if __name__ == "__main__":
         font_size=32,
         font_family="Microsoft JhengHei",
         stage_order=["formal", "reward", "penalty", "reward_penalty"],
-        total_answers=5,
     )
     root.mainloop()
