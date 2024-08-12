@@ -85,23 +85,25 @@ class LanguageProcessingTestSystem:
 
     def setup_gui(self):
         """設置初始界面"""
+        self.root.configure(bg="black")  # 設置背景為黑色
+
         self.instructions_label = tk.Label(
-            self.root, text="歡迎來到詞彙判斷試驗系統", font=self.font
+            self.root, text="歡迎來到詞彙判斷試驗系統", font=self.font, fg="white", bg="black"
         )
         self.instructions_label.pack()
 
-        self.name_label = tk.Label(self.root, text="參與者姓名：", font=self.font)
+        self.name_label = tk.Label(self.root, text="參與者姓名：", font=self.font, fg="white", bg="black")
         self.name_label.pack()
-        self.name_entry = tk.Entry(self.root, font=self.font)
+        self.name_entry = tk.Entry(self.root, font=self.font, fg="white", bg="black", insertbackground="white")
         self.name_entry.pack()
 
-        self.group_label = tk.Label(self.root, text="組別：", font=self.font)
+        self.group_label = tk.Label(self.root, text="組別：", font=self.font, fg="white", bg="black")
         self.group_label.pack()
-        self.group_entry = tk.Entry(self.root, font=self.font)
+        self.group_entry = tk.Entry(self.root, font=self.font, fg="white", bg="black", insertbackground="white")
         self.group_entry.pack()
 
         self.start_button = tk.Button(
-            self.root, text="開始", command=self.start_experiment, font=self.font
+            self.root, text="開始", command=self.start_experiment, font=self.font, fg="white", bg="black"
         )
         self.start_button.pack()
 
@@ -132,6 +134,7 @@ class LanguageProcessingTestSystem:
                  "請您按下空白建。\n"
                  "若您了解此實驗的程序請按enter鍵開始。",
             font=self.font,
+            fg="white", bg="black"
         )
         self.instructions_label.pack(expand=True)
 
@@ -148,6 +151,7 @@ class LanguageProcessingTestSystem:
             self.root,
             text="按任意鍵開始",
             font=self.font,
+            fg="white", bg="black"
         )
         self.instructions_label.pack(expand=True)
 
@@ -167,7 +171,7 @@ class LanguageProcessingTestSystem:
         """顯示下一個單詞"""
         if self.word_list:
             self.current_word, self.current_key = self.word_list.pop(0)
-            self.instructions_label.config(text=self.current_word, font=self.font)
+            self.instructions_label.config(text=self.current_word, font=self.font, fg="white", bg="black")
             self.root.bind("<Key>", lambda event: self.check_answer(event, stage))
             self.timeout_id = self.root.after(3000, lambda: self.check_answer_timeout(stage))
         else:
@@ -312,11 +316,11 @@ class LanguageProcessingTestSystem:
                     "若您了解此實驗的程序請按enter鍵開始。")
         else:
             self.save_results()
-            self.instructions_label.config(text="測試完成。謝謝！", font=self.font)
+            self.instructions_label.config(text="測試完成。謝謝！", font=self.font, fg="white", bg="black")
 
     def show_instructions(self, stage, instructions):
         """顯示每個階段的指導語"""
-        self.instructions_label.config(text=instructions, font=self.font)
+        self.instructions_label.config(text=instructions, font=self.font, fg="white", bg="black")
         self.root.bind("<Return>", lambda event: self.show_any_key_screen_next(event, stage))
 
     def show_any_key_screen_next(self, event, stage):
@@ -329,6 +333,7 @@ class LanguageProcessingTestSystem:
             self.root,
             text="按任意鍵開始",
             font=self.font,
+            fg="white", bg="black"
         )
         self.instructions_label.pack(expand=True)
 
