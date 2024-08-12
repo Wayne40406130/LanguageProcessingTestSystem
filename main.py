@@ -160,13 +160,30 @@ class LanguageProcessingTestSystem:
     def run_practice(self):
         """運行練習"""
         self.word_list = self.create_word_list()  # 重置詞彙列表
-        self.show_next_word(stage="practice")
+        self.show_black_screen_before_next_word(stage="practice")
+
+    def show_black_screen_before_next_word(self, stage):
+        """顯示全黑屏幕500ms，然後顯示下一個單詞"""
+        self.show_black_screen()
+        self.root.after(500, lambda: self.show_next_word(stage))
+
+    def show_black_screen(self):
+        """顯示全黑屏幕"""
+        for widget in self.root.winfo_children():
+            widget.pack_forget()
+
+        self.root.configure(bg="black")
+        self.root.update()  # 确保界面更新以显示黑屏
 
     def show_next_word(self, stage):
         """顯示下一個單詞"""
+        for widget in self.root.winfo_children():
+            widget.pack_forget()
+
         if self.word_list:
             self.current_word, self.current_key = self.word_list.pop(0)
             self.instructions_label.config(text=self.current_word, font=self.font, fg="white", bg="black")
+            self.instructions_label.pack(expand=True)
             self.root.bind("<Key>", lambda event: self.check_answer(event, stage))
             self.timeout_id = self.root.after(3000, lambda: self.check_answer_timeout(stage))
         else:
@@ -206,7 +223,7 @@ class LanguageProcessingTestSystem:
             print(f'self.pm_target_correct: {self.pm_target_correct}')
             print(f'PM target accuracy: {self.pm_target_accuracy:.2%}')
 
-        self.show_next_word(stage)
+        self.show_black_screen_before_next_word(stage)
 
     def check_answer_timeout(self, stage):
         """超時檢查答案"""
@@ -233,7 +250,7 @@ class LanguageProcessingTestSystem:
             print(f'self.pm_target_correct: {self.pm_target_correct}')
             print(f'PM target accuracy: {self.pm_target_accuracy:.2%}')
 
-        self.show_next_word(stage)
+        self.show_black_screen_before_next_word(stage)
 
     def end_stage(self, stage):
         """結束階段"""
@@ -316,6 +333,7 @@ class LanguageProcessingTestSystem:
     def show_instructions(self, stage, instructions):
         """顯示每個階段的指導語"""
         self.instructions_label.config(text=instructions, font=self.font, fg="white", bg="black")
+        self.instructions_label.pack(expand=True)
         self.root.bind("<Return>", lambda event: self.show_any_key_screen_next(event, stage))
 
     def show_any_key_screen_next(self, event, stage):
@@ -350,7 +368,7 @@ class LanguageProcessingTestSystem:
     def run_formal_stage(self):
         """運行正式測試階段"""
         self.reset_counters()
-        self.show_next_word(stage="formal")
+        self.show_black_screen_before_next_word(stage="formal")
 
     def end_formal_stage(self):
         """結束正式測試階段"""
@@ -359,7 +377,7 @@ class LanguageProcessingTestSystem:
     def run_reward_stage(self):
         """運行獎勵階段"""
         self.reset_counters()
-        self.show_next_word(stage="reward")
+        self.show_black_screen_before_next_word(stage="reward")
 
     def end_reward_stage(self):
         """結束獎勵階段"""
@@ -368,7 +386,7 @@ class LanguageProcessingTestSystem:
     def run_penalty_stage(self):
         """運行懲罰階段"""
         self.reset_counters()
-        self.show_next_word(stage="penalty")
+        self.show_black_screen_before_next_word(stage="penalty")
 
     def end_penalty_stage(self):
         """結束懲罰階段"""
@@ -377,7 +395,7 @@ class LanguageProcessingTestSystem:
     def run_reward_penalty_stage(self):
         """運行獎懲階段"""
         self.reset_counters()
-        self.show_next_word(stage="reward_penalty")
+        self.show_black_screen_before_next_word(stage="reward_penalty")
 
     def end_reward_penalty_stage(self):
         """結束獎懲階段"""
