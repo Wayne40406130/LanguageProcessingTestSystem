@@ -21,11 +21,11 @@ class LanguageProcessingTestSystem:
         self.words = {
             "a": ["豆腐", "香菇", "菠菜"],  # 真詞
             "l": ["一一", "二二", "三三", "四四"],  # 假詞
-            "space": ["雞蛋", "雞心", "雞胗"],  # PM target
+            "space": {"雞蛋": 1, "雞心": 5, "雞胗": 7},  # PM target
         }
         self.true_words = set(self.words["a"])
         self.false_words = set(self.words["l"])
-        self.pm_targets = set(self.words["space"])
+        self.pm_targets = self.words["space"]
 
         self.correct_answers = 0
         self.current_question_count = 0  # 當前已回答的問題數
@@ -45,11 +45,6 @@ class LanguageProcessingTestSystem:
         self.false_word_accuracy = 0
         self.pm_target_accuracy = 0
 
-        # PM target 指定出現順序
-        self.pm_target_order = {
-            "雞蛋": 2
-        }
-
         # 單詞清單，按指定順序排好
         self.word_list = self.create_word_list()
 
@@ -57,25 +52,25 @@ class LanguageProcessingTestSystem:
         self.setup_gui()
 
     def create_word_list(self):
-        word_list = []
-        for word in self.words["a"]:
-            word_list.append((word, "a"))
-        for word in self.words["l"]:
-            word_list.append((word, "l"))
-        for word in self.words["space"]:
-            word_list.append((word, "space"))
+        word_list = [None] * (len(self.true_words) + len(self.false_words) + len(self.pm_targets))
 
         # 將 PM target 移到指定的位置
-        for target, pos in self.pm_target_order.items():
-            if (target, "space") in word_list:
-                word_list.remove((target, "space"))
-                word_list.insert(pos - 1, (target, "space"))
+        for target, pos in self.pm_targets.items():
+            word_list[pos - 1] = (target, "space")
 
-        random.shuffle(word_list)
-        # 確保 PM target 在指定位置後打亂其他詞彙
-        for target, pos in sorted(self.pm_target_order.items(), key=lambda item: item[1]):
-            word_list.remove((target, "space"))
-            word_list.insert(pos - 1, (target, "space"))
+        # 將其餘的詞隨機填入空位
+        remaining_words = []
+        for word in self.true_words:
+            remaining_words.append((word, "a"))
+        for word in self.false_words:
+            remaining_words.append((word, "l"))
+
+        random.shuffle(remaining_words)
+
+        # 將未指定順序的詞彙填充到空位
+        for i in range(len(word_list)):
+            if word_list[i] is None and remaining_words:
+                word_list[i] = remaining_words.pop(0)
 
         return word_list
 
@@ -316,7 +311,7 @@ class LanguageProcessingTestSystem:
                     "若您了解此實驗的程序請按enter鍵開始。")
         else:
             self.save_results()
-            self.instructions_label.config(text="測試完成。謝謝！", font=self.font, fg="white", bg="black")
+            self.show_thank_you_message()
 
     def show_instructions(self, stage, instructions):
         """顯示每個階段的指導語"""
@@ -416,6 +411,19 @@ class LanguageProcessingTestSystem:
         df.to_excel(f"{self.group}_{self.participant_name}_results.xlsx", index=False)
         messagebox.showinfo("結果已保存", "結果已保存到Excel文件中。")
 
+    def show_thank_you_message(self):
+        """顯示銘謝詞並停留"""
+        for widget in self.root.winfo_children():
+            widget.pack_forget()
+
+        self.instructions_label = tk.Label(
+            self.root,
+            text="感謝您的參與，測驗已完成。",
+            font=self.font,
+            fg="white", bg="black"
+        )
+        self.instructions_label.pack(expand=True)
+        # 不綁定任何事件，停留在此屏幕
 
 if __name__ == "__main__":
     root = tk.Tk()
