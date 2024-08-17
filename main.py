@@ -31,6 +31,7 @@ class LanguageProcessingTestSystem:
         self.current_question_count = 0  # 當前已回答的問題數
         self.timeout_id = None
         self.current_stage_index = 0
+        self.current_balance = 0  # 初始化金額
 
         # 計數器
         self.true_word_count = 0
@@ -101,6 +102,15 @@ class LanguageProcessingTestSystem:
             self.root, text="開始", command=self.start_experiment, font=self.font, fg="white", bg="black"
         )
         self.start_button.pack()
+
+        # 顯示金額的Label
+        self.balance_label = tk.Label(self.root, text="", font=self.font, fg="white", bg="black")
+        self.balance_label.pack(anchor="nw", padx=10, pady=10)
+
+    def update_balance_label(self):
+        """更新金額顯示"""
+        self.balance_label.config(text=f"金額: {self.current_balance} 元")
+        self.balance_label.pack(anchor="nw", padx=10, pady=10)  # 確保顯示在左上角
 
     def start_experiment(self):
         """開始實驗"""
@@ -180,6 +190,9 @@ class LanguageProcessingTestSystem:
         for widget in self.root.winfo_children():
             widget.pack_forget()
 
+        if stage == "reward" or stage == "penalty" or stage == "reward_penalty":
+            self.update_balance_label()  # 更新金額顯示
+
         if self.word_list:
             self.current_word, self.current_key = self.word_list.pop(0)
             self.instructions_label.config(text=self.current_word, font=self.font, fg="white", bg="black")
@@ -218,11 +231,60 @@ class LanguageProcessingTestSystem:
             self.pm_target_count += 1
             if key == "space":
                 self.pm_target_correct += 1
-            self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
-            print(f'self.pm_target_count: {self.pm_target_count}')
-            print(f'self.pm_target_correct: {self.pm_target_correct}')
-            print(f'PM target accuracy: {self.pm_target_accuracy:.2%}')
+                if stage == "reward" or stage == "reward_penalty":
+                    self.reward_user()  # 在獎勵或獎懲階段獎勵用戶
+                    return  # 提前退出，防止继续执行
+            else:
+                if stage == "penalty" or stage == "reward_penalty":
+                    self.penalize_user()  # 在懲罰或獎懲階段處罰用戶
+                    return  # 提前退出，防止继续执行
 
+        self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
+        print(f'self.pm_target_count: {self.pm_target_count}')
+        print(f'self.pm_target_correct: {self.pm_target_correct}')
+        print(f'PM target accuracy: {self.pm_target_accuracy:.2%}')
+
+        self.show_black_screen_before_next_word(stage)
+
+    def reward_user(self):
+        """獎勵用戶"""
+        self.current_balance += 10
+        self.show_reward_message()
+
+    def show_reward_message(self):
+        """顯示獎勵信息"""
+        self.show_black_screen()
+        self.instructions_label = tk.Label(
+            self.root,
+            text="獲得十元",
+            font=self.font,
+            fg="white", bg="black"
+        )
+        self.instructions_label.pack(expand=True)
+        self.root.update()
+        self.root.after(1500, lambda: self.update_balance_and_continue(stage="reward_penalty"))
+
+    def penalize_user(self):
+        """懲罰用戶"""
+        self.current_balance -= 10
+        self.show_penalty_message()
+
+    def show_penalty_message(self):
+        """顯示懲罰信息"""
+        self.show_black_screen()
+        self.instructions_label = tk.Label(
+            self.root,
+            text="扣除十元",
+            font=self.font,
+            fg="white", bg="black"
+        )
+        self.instructions_label.pack(expand=True)
+        self.root.update()
+        self.root.after(1500, lambda: self.update_balance_and_continue(stage="reward_penalty"))
+
+    def update_balance_and_continue(self, stage):
+        """更新金額並繼續"""
+        self.update_balance_label()
         self.show_black_screen_before_next_word(stage)
 
     def check_answer_timeout(self, stage):
@@ -245,10 +307,14 @@ class LanguageProcessingTestSystem:
             print(f'False word accuracy: {self.false_word_accuracy:.2%}')
         elif self.current_word in self.pm_targets:
             self.pm_target_count += 1
-            self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
-            print(f'self.pm_target_count: {self.pm_target_count}')
-            print(f'self.pm_target_correct: {self.pm_target_correct}')
-            print(f'PM target accuracy: {self.pm_target_accuracy:.2%}')
+            if stage == "penalty" or stage == "reward_penalty":
+                self.penalize_user()  # 只有在懲罰或獎懲階段才执行扣钱逻辑
+                return  # 提前退出，防止继续执行
+
+        self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
+        print(f'self.pm_target_count: {self.pm_target_count}')
+        print(f'self.pm_target_correct: {self.pm_target_correct}')
+        print(f'PM target accuracy: {self.pm_target_accuracy:.2%}')
 
         self.show_black_screen_before_next_word(stage)
 
@@ -377,29 +443,42 @@ class LanguageProcessingTestSystem:
     def run_reward_stage(self):
         """運行獎勵階段"""
         self.reset_counters()
+        self.current_balance = 200  # 初始金額
+        self.update_balance_label()  # 顯示金額
         self.show_black_screen_before_next_word(stage="reward")
 
     def end_reward_stage(self):
         """結束獎勵階段"""
+        self.clear_balance_label()  # 清除金額顯示
         self.start_next_stage()
 
     def run_penalty_stage(self):
         """運行懲罰階段"""
         self.reset_counters()
+        self.current_balance = 200  # 初始金額
+        self.update_balance_label()  # 顯示金額
         self.show_black_screen_before_next_word(stage="penalty")
 
     def end_penalty_stage(self):
         """結束懲罰階段"""
+        self.clear_balance_label()  # 清除金額顯示
         self.start_next_stage()
 
     def run_reward_penalty_stage(self):
         """運行獎懲階段"""
         self.reset_counters()
+        self.current_balance = 200  # 初始金額
+        self.update_balance_label()  # 顯示金額
         self.show_black_screen_before_next_word(stage="reward_penalty")
 
     def end_reward_penalty_stage(self):
         """結束獎懲階段"""
+        self.clear_balance_label()  # 清除金額顯示
         self.start_next_stage()
+
+    def clear_balance_label(self):
+        """清除金額顯示"""
+        self.balance_label.config(text="")
 
     def reset_counters(self):
         """重置計數器"""
@@ -450,6 +529,6 @@ if __name__ == "__main__":
         window_size=(1024, 768),
         font_size=32,
         font_family="Microsoft JhengHei",
-        stage_order=["formal", "reward", "penalty", "reward_penalty"],
+        stage_order=["penalty", "reward", "reward_penalty", "formal", ],
     )
     root.mainloop()
