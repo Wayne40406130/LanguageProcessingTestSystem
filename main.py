@@ -340,6 +340,10 @@ class LanguageProcessingTestSystem:
         print(f"self.pm_target_count: {self.pm_target_count}")
         print(f"self.pm_target_correct: {self.pm_target_correct}")
         print(f"PM target accuracy: {self.pm_target_accuracy:.2%}")
+        stage_prefix = self.get_stage_prefix(stage)
+        if stage_prefix in ['rfb', 'pfb', 'rpfb']:
+            # 將當前金額追加到相應的summary_data欄位
+            self.summary_data[f'accum_{stage_prefix}'].append(self.current_balance)
 
         self.show_black_screen_before_next_word(stage)
 
@@ -446,6 +450,12 @@ class LanguageProcessingTestSystem:
         print(f"self.pm_target_count: {self.pm_target_count}")
         print(f"self.pm_target_correct: {self.pm_target_correct}")
         print(f"PM target accuracy: {self.pm_target_accuracy:.2%}")
+
+        # 在超時檢查答案後，即使沒有金額變動，也更新金額到 summary_data
+        stage_prefix = self.get_stage_prefix(stage)
+        if stage_prefix in ['rfb', 'pfb', 'rpfb']:
+            # 將當前金額追加到相應的summary_data欄位
+            self.summary_data[f'accum_{stage_prefix}'].append(self.current_balance)
 
         self.show_black_screen_before_next_word(stage)
 
