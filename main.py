@@ -1,16 +1,17 @@
+import os
 import time
 import tkinter as tk
 from tkinter import messagebox
+import openpyxl
 import pandas as pd
 import datetime
 import random
-
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 class LanguageProcessingTestSystem:
     def __init__(
         self,
         root,
-        window_size=(800, 600),
         font_size=16,
         font_family="Microsoft JhengHei",
         stage_order=["formal", "reward", "penalty", "reward_penalty"],
@@ -690,7 +691,14 @@ class LanguageProcessingTestSystem:
         for result in current_results:
             self.summary_data[f"lexical_{stage_prefix}"].append(result["word"])
             self.summary_data[f"keyresponse_{stage_prefix}"].append(result["response"])
-            self.summary_data[f"lexical_ans_{stage_prefix}"].append(result["correct_response"])
+
+            if result["correct_response"] == "space":
+                self.summary_data[f"phonetic_ans_{stage_prefix}"].append(result["correct_response"])
+                self.summary_data[f"lexical_ans_{stage_prefix}"].append("")  # 對應空值
+            else:
+                self.summary_data[f"lexical_ans_{stage_prefix}"].append(result["correct_response"])
+                self.summary_data[f"phonetic_ans_{stage_prefix}"].append("")  # 對應空值
+
             self.summary_data[f"reactiontime_{stage_prefix}"].append(result["reaction_time"])
         
          # 檢查是否是金錢變化階段，並記錄金額變化
@@ -756,7 +764,21 @@ class LanguageProcessingTestSystem:
 
     def save_results(self):
         """保存結果到Excel文件"""
-        writer = pd.ExcelWriter(f"{self.group}.xlsx", engine="openpyxl")
+        filename = f"{self.group}.xlsx"
+        if not os.path.exists(filename):
+            workbook = openpyxl.Workbook()
+            # 如果是新文件，先移除默認創建的工作表
+            workbook.remove(workbook.active)
+        else:
+            # 文件存在，則打開該文件
+            workbook = openpyxl.load_workbook(filename)
+
+        # 如果已有以 participant_name 命名的工作表，刪除該工作表以覆蓋
+        if self.participant_name in workbook.sheetnames:
+            del workbook[self.participant_name]
+
+        # 創建一個新的工作表
+        worksheet = workbook.create_sheet(title=self.participant_name)
 
         # 處理每個階段的數據
         for stage in ["prac", "nofb", "rfb", "pfb", "rpfb"]:
@@ -843,22 +865,13 @@ class LanguageProcessingTestSystem:
                     summary_data[accum_key] = self.summary_data[accum_key]
                 summary_df = pd.DataFrame(summary_data)
 
-                # 將數據寫入到對應的sheet中，sheet名稱為參與者的名字
-                sheet_name = self.participant_name
+                for r in dataframe_to_rows(summary_df, index=False, header=True):
+                    worksheet.append(r)
 
-                # 檢查工作表是否存在
-                if sheet_name in writer.sheets:
-                    startrow = writer.sheets[sheet_name].max_row
-                else:
-                    startrow = 0
-
-                summary_df.to_excel(
-                    writer, sheet_name=sheet_name, index=False, startrow=startrow
-                )
 
         # 保存 Excel 文件
-        writer.close()
-        messagebox.showinfo("結果已保存", "結果已保存到Excel文件中。")
+            workbook.save(filename)
+            messagebox.showinfo("結果已保存", "結果已保存到Excel文件中。")
 
     def show_thank_you_message(self):
         """顯示銘謝詞並停留"""
@@ -880,7 +893,6 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = LanguageProcessingTestSystem(
         root,
-        window_size=(1024, 768),
         font_size=32,
         font_family="Microsoft JhengHei",
         stage_order=[
