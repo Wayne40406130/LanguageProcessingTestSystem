@@ -1,12 +1,15 @@
+import datetime
+import json
 import os
+import random
 import time
 import tkinter as tk
 from tkinter import messagebox
+
 import openpyxl
 import pandas as pd
-import datetime
-import random
 from openpyxl.utils.dataframe import dataframe_to_rows
+
 
 class LanguageProcessingTestSystem:
     def __init__(
@@ -15,6 +18,7 @@ class LanguageProcessingTestSystem:
         font_size=16,
         font_family="Microsoft JhengHei",
         stage_order=["formal", "reward", "penalty", "reward_penalty"],
+        config_path="words_config.json"
     ):
         self.root = root
         self.root.title("詞彙判斷試驗系統")
@@ -27,23 +31,17 @@ class LanguageProcessingTestSystem:
         self.stage_order = stage_order
         self.font = (font_family, font_size)  # 使用指定字體
 
-        self.words = {
-            "a": ["豆腐", "香菇", "菠菜"],  # 真詞
-            "l": ["一一", "二二", "三三", "四四"],  # 假詞
-            "space": {"雞蛋": 1, "雞心": 5, "雞胗": 7},  # PM target
-        }
-        # self.words = {
-        #     "a": [
-        #         "豆腐",
-        #     ],  # 真詞
-        #     "l": [
-        #         "一一",
-        #     ],  # 假詞
-        #     "space": {"雞蛋": 1},  # PM target
-        # }
-        self.true_words = set(self.words["a"])
-        self.false_words = set(self.words["l"])
-        self.pm_targets = self.words["space"]
+        self.words_config = self.load_words_from_config(config_path)
+        if not self.words_config:
+            raise ValueError("Failed to load words configuration")
+        
+        # 將類型和詞彙分配到相應的變量
+        self.types = list(self.words_config["types"].keys())
+        self.words = self.words_config["types"]
+
+        self.true_words = set(self.words[self.types[0]])
+        self.false_words = set(self.words[self.types[1]])
+        self.pm_targets = self.words[self.types[2]]
 
         self.correct_answers = 0
         self.current_question_count = 0  # 當前已回答的問題數
@@ -80,7 +78,6 @@ class LanguageProcessingTestSystem:
             "reactiontime_avg_prac": [],
         }
 
-        # 针对每个阶段扩展 `summary_data`
         for stage in ["nofb", "rfb", "pfb", "rpfb"]:
             self.summary_data[f"lexical_{stage}"] = []
             self.summary_data[f"keyresponse_{stage}"] = []
@@ -107,6 +104,19 @@ class LanguageProcessingTestSystem:
         # GUI設置
         self.setup_gui()
 
+    def load_words_from_config(self, config_path):
+        """從JSON配置文件中讀取詞彙"""
+        if not os.path.exists(config_path):
+            print(f"Config file {config_path} does not exist.")
+            return None
+        try:
+            with open(config_path, "r", encoding="utf-8") as file:
+                words = json.load(file)
+                return words
+        except Exception as e:
+            print(f"Error reading config file: {e}")
+            return None
+
     def create_word_list(self):
         word_list = [None] * (
             len(self.true_words) + len(self.false_words) + len(self.pm_targets)
@@ -114,14 +124,14 @@ class LanguageProcessingTestSystem:
 
         # 將 PM target 移到指定的位置
         for target, pos in self.pm_targets.items():
-            word_list[pos - 1] = (target, "space")
+            word_list[pos - 1] = (target, self.types[2])
 
         # 將其餘的詞隨機填入空位
         remaining_words = []
         for word in self.true_words:
-            remaining_words.append((word, "a"))
+            remaining_words.append((word, self.types[0]))
         for word in self.false_words:
-            remaining_words.append((word, "l"))
+            remaining_words.append((word, self.types[1]))
 
         random.shuffle(remaining_words)
 
@@ -249,7 +259,7 @@ class LanguageProcessingTestSystem:
 
     def show_black_screen_before_next_word(self, stage):
         """顯示全黑屏幕500ms，然後顯示下一個單詞"""
-        print(f'show_black_screen_before_next_word:{stage}')
+        print(f"show_black_screen_before_next_word:{stage}")
         self.show_black_screen()
         self.root.after(500, lambda: self.show_next_word(stage))
 
@@ -259,11 +269,11 @@ class LanguageProcessingTestSystem:
             widget.pack_forget()
 
         self.root.configure(bg="black")
-        self.root.update()  # 确保界面更新以显示黑屏
+        self.root.update()
 
     def show_next_word(self, stage):
         """顯示下一個單詞"""
-        print(f'show_next_word:{stage}')
+        print(f"show_next_word:{stage}")
         for widget in self.root.winfo_children():
             widget.pack_forget()
 
@@ -286,7 +296,7 @@ class LanguageProcessingTestSystem:
 
     def check_answer(self, event, stage):
         """檢查答案"""
-        print(f'check_answer stage:{stage}')
+        print(f"check_answer stage:{stage}")
         if self.timeout_id is not None:
             self.root.after_cancel(self.timeout_id)
             self.timeout_id = None
@@ -303,15 +313,15 @@ class LanguageProcessingTestSystem:
                 "word": self.current_word,
                 "response": key,
                 "reaction_time": reaction_time,
-                "correct_response": "a"
+                "correct_response": self.types[0]
                 if self.current_word in self.true_words
-                else ("l" if self.current_word in self.false_words else "space"),
+                else (self.types[1] if self.current_word in self.false_words else self.types[2]),
             }
         )
 
         if self.current_word in self.true_words:
             self.true_word_count += 1
-            if key == "a":
+            if key == self.types[0]:
                 self.true_word_correct += 1
             self.true_word_accuracy = self.true_word_correct / self.true_word_count
             print(f"self.true_word_count: {self.true_word_count}")
@@ -319,7 +329,7 @@ class LanguageProcessingTestSystem:
             print(f"True word accuracy: {self.true_word_accuracy:.2%}")
         elif self.current_word in self.false_words:
             self.false_word_count += 1
-            if key == "l":
+            if key == self.types[1]:
                 self.false_word_correct += 1
             self.false_word_accuracy = self.false_word_correct / self.false_word_count
             print(f"self.false_word_count: {self.false_word_count}")
@@ -327,24 +337,24 @@ class LanguageProcessingTestSystem:
             print(f"False word accuracy: {self.false_word_accuracy:.2%}")
         elif self.current_word in self.pm_targets:
             self.pm_target_count += 1
-            if key == "space":
+            if key == self.types[2]:
                 self.pm_target_correct += 1
                 if stage == "reward" or stage == "reward_penalty":
                     self.reward_user()  # 在獎勵或獎懲階段獎勵用戶
-                    return  # 提前退出，防止继续执行
+                    return 
             else:
                 if stage == "penalty" or stage == "reward_penalty":
                     self.penalize_user()  # 在懲罰或獎懲階段處罰用戶
-                    return  # 提前退出，防止继续执行
+                    return
 
         self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
         print(f"self.pm_target_count: {self.pm_target_count}")
         print(f"self.pm_target_correct: {self.pm_target_correct}")
         print(f"PM target accuracy: {self.pm_target_accuracy:.2%}")
         stage_prefix = self.get_stage_prefix(stage)
-        if stage_prefix in ['rfb', 'pfb', 'rpfb']:
+        if stage_prefix in ["rfb", "pfb", "rpfb"]:
             # 將當前金額追加到相應的summary_data欄位
-            self.summary_data[f'accum_{stage_prefix}'].append(self.current_balance)
+            self.summary_data[f"accum_{stage_prefix}"].append(self.current_balance)
 
         self.show_black_screen_before_next_word(stage)
 
@@ -353,15 +363,15 @@ class LanguageProcessingTestSystem:
         self.current_balance += 10
         stage_prefix = self.get_stage_prefix(self.current_stage)  # 獲取當前階段的前綴
 
-        if stage_prefix in ['rfb', 'rpfb']:  # 在獎勵或獎懲階段更新金額
-            self.summary_data[f'accum_{stage_prefix}'].append(self.current_balance)
+        if stage_prefix in ["rfb", "rpfb"]:  # 在獎勵或獎懲階段更新金額
+            self.summary_data[f"accum_{stage_prefix}"].append(self.current_balance)
 
         # 呼叫顯示獎勵信息函數，傳入正確的當前階段
         self.show_reward_message(stage=self.current_stage)
 
     def show_reward_message(self, stage):
         """顯示獎勵信息"""
-        print(f'show_reward_message for stage: {stage}')
+        print(f"show_reward_message for stage: {stage}")
         self.show_black_screen()
         self.instructions_label = tk.Label(
             self.root, text="獲得十元", font=self.font, fg="white", bg="black"
@@ -369,7 +379,10 @@ class LanguageProcessingTestSystem:
         self.instructions_label.pack(expand=True)
         self.root.update()
         self.root.after(
-            1500, lambda: self.update_balance_and_continue(stage=stage)  # 使用傳遞的 stage 參數
+            1500,
+            lambda: self.update_balance_and_continue(
+                stage=stage
+            ),  # 使用傳遞的 stage 參數
         )
 
     def penalize_user(self):
@@ -377,20 +390,19 @@ class LanguageProcessingTestSystem:
         print(f'"""懲罰用戶"""')
         self.current_balance -= 10
         stage_prefix = self.get_stage_prefix(self.current_stage)  # 獲取當前階段的前綴
-        print(f'stage_prefix:{stage_prefix}')
+        print(f"stage_prefix:{stage_prefix}")
 
-
-        if stage_prefix in ['pfb', 'rpfb']:  # 在懲罰或獎懲階段更新金額
-            print('# 在懲罰或獎懲階段更新金額')
-            self.summary_data[f'accum_{stage_prefix}'].append(self.current_balance)
-            print(self.summary_data[f'accum_{stage_prefix}'])
+        if stage_prefix in ["pfb", "rpfb"]:  # 在懲罰或獎懲階段更新金額
+            print("# 在懲罰或獎懲階段更新金額")
+            self.summary_data[f"accum_{stage_prefix}"].append(self.current_balance)
+            print(self.summary_data[f"accum_{stage_prefix}"])
 
         # 呼叫顯示懲罰信息函數，傳入正確的當前階段
         self.show_penalty_message(stage=self.current_stage)
 
     def show_penalty_message(self, stage):
         """顯示懲罰信息"""
-        print(f'show_penalty_message for stage: {stage}')
+        print(f"show_penalty_message for stage: {stage}")
         self.show_black_screen()
         self.instructions_label = tk.Label(
             self.root, text="扣除十元", font=self.font, fg="white", bg="black"
@@ -398,9 +410,11 @@ class LanguageProcessingTestSystem:
         self.instructions_label.pack(expand=True)
         self.root.update()
         self.root.after(
-            1500, lambda: self.update_balance_and_continue(stage=stage)  # 使用傳遞的 stage 參數
+            1500,
+            lambda: self.update_balance_and_continue(
+                stage=stage
+            ),  # 使用傳遞的 stage 參數
         )
-
 
     def update_balance_and_continue(self, stage):
         """更新金額並繼續"""
@@ -409,7 +423,7 @@ class LanguageProcessingTestSystem:
 
     def check_answer_timeout(self, stage):
         """超時檢查答案"""
-        print(f'check_answer_timeout:{stage}')
+        print(f"check_answer_timeout:{stage}")
         if self.timeout_id is not None:
             self.timeout_id = None
             self.root.unbind("<Key>")
@@ -422,9 +436,9 @@ class LanguageProcessingTestSystem:
                 "word": self.current_word,
                 "response": key,
                 "reaction_time": reaction_time,
-                "correct_response": "a"
+                "correct_response": self.types[0]
                 if self.current_word in self.true_words
-                else ("l" if self.current_word in self.false_words else "space"),
+                else (self.types[1] if self.current_word in self.false_words else self.types[2]),
             }
         )
 
@@ -443,9 +457,9 @@ class LanguageProcessingTestSystem:
         elif self.current_word in self.pm_targets:
             self.pm_target_count += 1
             if stage == "penalty" or stage == "reward_penalty":
-                print(f'在懲罰或獎懲階段才执行扣钱逻辑')
+                print(f"在懲罰或獎懲階段才执行扣钱逻辑")
                 self.penalize_user()  # 只有在懲罰或獎懲階段才执行扣钱逻辑
-                return  # 提前退出，防止继续执行
+                return
 
         self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
         print(f"self.pm_target_count: {self.pm_target_count}")
@@ -454,9 +468,9 @@ class LanguageProcessingTestSystem:
 
         # 在超時檢查答案後，即使沒有金額變動，也更新金額到 summary_data
         stage_prefix = self.get_stage_prefix(stage)
-        if stage_prefix in ['rfb', 'pfb', 'rpfb']:
+        if stage_prefix in ["rfb", "pfb", "rpfb"]:
             # 將當前金額追加到相應的summary_data欄位
-            self.summary_data[f'accum_{stage_prefix}'].append(self.current_balance)
+            self.summary_data[f"accum_{stage_prefix}"].append(self.current_balance)
 
         self.show_black_screen_before_next_word(stage)
 
@@ -596,7 +610,7 @@ class LanguageProcessingTestSystem:
 
     def start_stage(self, event, stage):
         """開始階段"""
-        print(f'stage{stage}')
+        print(f"stage{stage}")
         self.root.unbind("<Key>")
         self.word_list = self.create_word_list()  # 重置詞彙列表
         if stage == "formal":
@@ -635,7 +649,7 @@ class LanguageProcessingTestSystem:
 
     def run_penalty_stage(self):
         """運行懲罰階段"""
-        print('run_penalty_stage')
+        print("run_penalty_stage")
         self.reset_counters()
         self.current_balance = 200  # 初始金額
         self.update_balance_label()  # 顯示金額
@@ -643,9 +657,9 @@ class LanguageProcessingTestSystem:
 
     def end_penalty_stage(self):
         """結束懲罰階段"""
-        print('end_penalty_stage')
+        print("end_penalty_stage")
         self.current_stage = "penalty"
-        print(f'self.current_stage:{self.current_stage}')
+        print(f"self.current_stage:{self.current_stage}")
         self.save_stage_results()
         self.clear_balance_label()  # 清除金額顯示
         self.start_next_stage()
@@ -692,21 +706,28 @@ class LanguageProcessingTestSystem:
             self.summary_data[f"lexical_{stage_prefix}"].append(result["word"])
             self.summary_data[f"keyresponse_{stage_prefix}"].append(result["response"])
 
-            if result["correct_response"] == "space":
-                self.summary_data[f"phonetic_ans_{stage_prefix}"].append(result["correct_response"])
+            if result["correct_response"] == self.types[2]:
+                self.summary_data[f"phonetic_ans_{stage_prefix}"].append(
+                    result["correct_response"]
+                )
                 self.summary_data[f"lexical_ans_{stage_prefix}"].append("")  # 對應空值
             else:
-                self.summary_data[f"lexical_ans_{stage_prefix}"].append(result["correct_response"])
+                self.summary_data[f"lexical_ans_{stage_prefix}"].append(
+                    result["correct_response"]
+                )
                 self.summary_data[f"phonetic_ans_{stage_prefix}"].append("")  # 對應空值
 
-            self.summary_data[f"reactiontime_{stage_prefix}"].append(result["reaction_time"])
-        
-         # 檢查是否是金錢變化階段，並記錄金額變化
-        if stage_prefix in ['rfb', 'pfb', 'rpfb']:
-            if f'accum_{stage_prefix}' not in self.summary_data:
-                self.summary_data[f'accum_{stage_prefix}'] = []  # 初始化金額變化列表
-            self.summary_data[f'accum_{stage_prefix}'] += [""] * (
-                len(self.summary_data[f'lexical_{stage_prefix}']) - len(self.summary_data[f'accum_{stage_prefix}'])
+            self.summary_data[f"reactiontime_{stage_prefix}"].append(
+                result["reaction_time"]
+            )
+
+        # 檢查是否是金錢變化階段，並記錄金額變化
+        if stage_prefix in ["rfb", "pfb", "rpfb"]:
+            if f"accum_{stage_prefix}" not in self.summary_data:
+                self.summary_data[f"accum_{stage_prefix}"] = []  # 初始化金額變化列表
+            self.summary_data[f"accum_{stage_prefix}"] += [""] * (
+                len(self.summary_data[f"lexical_{stage_prefix}"])
+                - len(self.summary_data[f"accum_{stage_prefix}"])
             )
         # 計算當前階段的正確率並保存
         lexical_accuracy = self.calculate_lexical_accuracy()
@@ -727,8 +748,8 @@ class LanguageProcessingTestSystem:
         self.summary_data[f"reactiontime_avg_{stage_prefix}"].append(
             round(average_reaction_time, 2)
         )
-        print('!!!!!!!!')
-        print(f'save_stage_results:')
+        print("!!!!!!!!")
+        print(f"save_stage_results:")
         print(self.summary_data)
         # 清空當前階段的結果
         self.results_data[self.current_stage] = []
@@ -782,8 +803,8 @@ class LanguageProcessingTestSystem:
 
         # 處理每個階段的數據
         for stage in ["prac", "nofb", "rfb", "pfb", "rpfb"]:
-            print('===============')
-            print(f'stage:{stage}')
+            print("===============")
+            print(f"stage:{stage}")
             # 根據階段名稱動態生成對應的欄位名稱
             lexical_key = f"lexical_{stage}"
             keyresponse_key = f"keyresponse_{stage}"
@@ -856,10 +877,10 @@ class LanguageProcessingTestSystem:
                     reactiontime_key: self.summary_data[reactiontime_key],
                     reactiontime_avg_key: self.summary_data[reactiontime_avg_key],
                 }
-                print(f'summary_data')
+                print(f"summary_data")
                 print(summary_data)
                 # 新增金錢變化的欄位
-                print('accum_key')
+                print("accum_key")
                 print(accum_key)
                 if accum_key:
                     summary_data[accum_key] = self.summary_data[accum_key]
@@ -868,8 +889,7 @@ class LanguageProcessingTestSystem:
                 for r in dataframe_to_rows(summary_df, index=False, header=True):
                     worksheet.append(r)
 
-
-        # 保存 Excel 文件
+            # 保存 Excel 文件
             workbook.save(filename)
             messagebox.showinfo("結果已保存", "結果已保存到Excel文件中。")
 
