@@ -18,7 +18,7 @@ class LanguageProcessingTestSystem:
         font_size=16,
         font_family="Microsoft JhengHei",
         stage_order=["formal", "reward", "penalty", "reward_penalty"],
-        config_path="words_config.json"
+        config_path="words_config.json",
     ):
         self.root = root
         self.root.title("詞彙判斷試驗系統")
@@ -31,17 +31,9 @@ class LanguageProcessingTestSystem:
         self.stage_order = stage_order
         self.font = (font_family, font_size)  # 使用指定字體
 
-        self.words_config = self.load_words_from_config(config_path)
+        self.words_config = self.load_words_from_config(config_path)["types"]
         if not self.words_config:
             raise ValueError("Failed to load words configuration")
-        
-        # 將類型和詞彙分配到相應的變量
-        self.types = list(self.words_config["types"].keys())
-        self.words = self.words_config["types"]
-
-        self.true_words = set(self.words[self.types[0]])
-        self.false_words = set(self.words[self.types[1]])
-        self.pm_targets = self.words[self.types[2]]
 
         self.correct_answers = 0
         self.current_question_count = 0  # 當前已回答的問題數
@@ -98,40 +90,95 @@ class LanguageProcessingTestSystem:
             "reward_penalty": [],
         }
 
-        # 單詞清單，按指定順序排好
-        self.word_list = self.create_word_list()
+        # # 單詞清單，按指定順序排好
+        # self.word_list = self.create_word_list()
 
         # GUI設置
         self.setup_gui()
 
     def load_words_from_config(self, config_path):
-        """從JSON配置文件中讀取詞彙"""
+        """根據JSON配置檔載入所有階段的詞彙"""
+        required_stages = [
+            "practice",
+            "formal",
+            "reward",
+            "penalty",
+            "reward_penalty",
+        ]  # 必須包含的五個階段
+
         if not os.path.exists(config_path):
-            print(f"Config file {config_path} does not exist.")
+            messagebox.showerror("錯誤", f"Config file {config_path} 不存在。")
             return None
+
         try:
             with open(config_path, "r", encoding="utf-8") as file:
-                words = json.load(file)
-                return words
-        except Exception as e:
-            print(f"Error reading config file: {e}")
+                config_data = json.load(file)  # 載入JSON檔案
+
+            missing_stages = [
+                stage for stage in required_stages if stage not in config_data["types"]
+            ]
+
+            if missing_stages:
+                missing_stages_str = ", ".join(missing_stages)
+                messagebox.showerror(
+                    "錯誤", f"缺少以下階段的詞彙配置: {missing_stages_str}"
+                )
+                return None
+
+            return config_data  # 如果所有必須的階段都存在，回傳完整的配置
+
+        except json.JSONDecodeError:
+            messagebox.showerror("錯誤", "JSON 文件格式錯誤，無法解析。")
             return None
 
+        except Exception as e:
+            messagebox.showerror("錯誤", f"讀取配置文件時發生錯誤: {e}")
+            return None
+
+    def select_words_for_stage(self, stage):
+        """根據當前階段選擇對應的詞彙，支持動態鍵值"""
+        try:
+            # 取得對應階段的詞彙區塊
+            stage_words = self.words_config[stage]
+
+            word_types = list(stage_words.keys())
+
+            # 使用鍵名動態分配對應的詞彙
+            self.true_word_type = word_types[0]  # 動態取得真詞類型
+            self.false_word_type = word_types[1]  # 動態取得假詞類型
+            self.pm_target_type = word_types[2]  # 動態取得 PM target 類型
+
+            # 將詞彙類型的內容分配到變量
+            self.true_words = set(stage_words[self.true_word_type])
+            self.false_words = set(stage_words[self.false_word_type])
+            self.pm_targets = stage_words[self.pm_target_type]
+
+            print(f"Loaded words for stage: {stage}")
+        except KeyError as e:
+            print(f"Error: Stage '{stage}' not found in words_config - {e}")
+            raise ValueError(f"Missing words configuration for stage: {stage}")
+
     def create_word_list(self):
-        word_list = [None] * (
+        total_words = (
             len(self.true_words) + len(self.false_words) + len(self.pm_targets)
         )
+        word_list = [None] * total_words  # 初始化詞彙列表
 
-        # 將 PM target 移到指定的位置
+        # 將 PM target 移到指定的位置，並檢查是否超出範圍
         for target, pos in self.pm_targets.items():
-            word_list[pos - 1] = (target, self.types[2])
+            if pos - 1 >= total_words or pos - 1 < 0:
+                messagebox.showerror(
+                    "錯誤",
+                    f"詞彙總長度為: {total_words}。PM target 「{target}」 的位置 「{pos}」 超出範圍，請重新調整 words_config.json。",
+                )
+                self.root.destroy()  # 結束程序
+                return  # 確保程式中斷
+            word_list[pos - 1] = (target, self.pm_target_type)
 
         # 將其餘的詞隨機填入空位
-        remaining_words = []
-        for word in self.true_words:
-            remaining_words.append((word, self.types[0]))
-        for word in self.false_words:
-            remaining_words.append((word, self.types[1]))
+        remaining_words = [(word, self.true_word_type) for word in self.true_words] + [
+            (word, self.false_word_type) for word in self.false_words
+        ]
 
         random.shuffle(remaining_words)
 
@@ -250,6 +297,7 @@ class LanguageProcessingTestSystem:
         """開始練習"""
         self.root.unbind("<Key>")
         self.current_stage = "practice"
+        self.select_words_for_stage(self.current_stage)
         self.run_practice()
 
     def run_practice(self):
@@ -313,15 +361,19 @@ class LanguageProcessingTestSystem:
                 "word": self.current_word,
                 "response": key,
                 "reaction_time": reaction_time,
-                "correct_response": self.types[0]
+                "correct_response": self.true_word_type
                 if self.current_word in self.true_words
-                else (self.types[1] if self.current_word in self.false_words else self.types[2]),
+                else (
+                    self.false_word_type
+                    if self.current_word in self.false_words
+                    else self.pm_target_type
+                ),
             }
         )
 
         if self.current_word in self.true_words:
             self.true_word_count += 1
-            if key == self.types[0]:
+            if key == self.true_word_type:
                 self.true_word_correct += 1
             self.true_word_accuracy = self.true_word_correct / self.true_word_count
             print(f"self.true_word_count: {self.true_word_count}")
@@ -329,7 +381,7 @@ class LanguageProcessingTestSystem:
             print(f"True word accuracy: {self.true_word_accuracy:.2%}")
         elif self.current_word in self.false_words:
             self.false_word_count += 1
-            if key == self.types[1]:
+            if key == self.false_word_type:
                 self.false_word_correct += 1
             self.false_word_accuracy = self.false_word_correct / self.false_word_count
             print(f"self.false_word_count: {self.false_word_count}")
@@ -337,20 +389,19 @@ class LanguageProcessingTestSystem:
             print(f"False word accuracy: {self.false_word_accuracy:.2%}")
         elif self.current_word in self.pm_targets:
             self.pm_target_count += 1
-            if key == self.types[2]:
+            if key == self.pm_target_type:
                 self.pm_target_correct += 1
-                if stage == "reward" or stage == "reward_penalty":
+                if stage in ["reward", "reward_penalty"]:
                     self.reward_user()  # 在獎勵或獎懲階段獎勵用戶
-                    return 
+                    return
             else:
-                if stage == "penalty" or stage == "reward_penalty":
+                if stage in ["penalty", "reward_penalty"]:
                     self.penalize_user()  # 在懲罰或獎懲階段處罰用戶
                     return
-
-        self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
-        print(f"self.pm_target_count: {self.pm_target_count}")
-        print(f"self.pm_target_correct: {self.pm_target_correct}")
-        print(f"PM target accuracy: {self.pm_target_accuracy:.2%}")
+            print(f"self.pm_target_count: {self.pm_target_count}")
+            print(f"self.pm_target_correct: {self.pm_target_correct}")
+            self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
+            print(f"PM target accuracy: {self.pm_target_accuracy:.2%}")
         stage_prefix = self.get_stage_prefix(stage)
         if stage_prefix in ["rfb", "pfb", "rpfb"]:
             # 將當前金額追加到相應的summary_data欄位
@@ -436,9 +487,13 @@ class LanguageProcessingTestSystem:
                 "word": self.current_word,
                 "response": key,
                 "reaction_time": reaction_time,
-                "correct_response": self.types[0]
+                "correct_response": self.true_word_type
                 if self.current_word in self.true_words
-                else (self.types[1] if self.current_word in self.false_words else self.types[2]),
+                else (
+                    self.false_word_type
+                    if self.current_word in self.false_words
+                    else self.pm_target_type
+                ),
             }
         )
 
@@ -611,6 +666,7 @@ class LanguageProcessingTestSystem:
     def start_stage(self, event, stage):
         """開始階段"""
         print(f"stage{stage}")
+        self.select_words_for_stage(stage)
         self.root.unbind("<Key>")
         self.word_list = self.create_word_list()  # 重置詞彙列表
         if stage == "formal":
@@ -625,6 +681,7 @@ class LanguageProcessingTestSystem:
     def run_formal_stage(self):
         """運行正式測試階段"""
         self.reset_counters()
+        self.select_words_for_stage(self.current_stage)
         self.show_black_screen_before_next_word(stage="formal")
 
     def end_formal_stage(self):
@@ -637,6 +694,7 @@ class LanguageProcessingTestSystem:
         """運行獎勵階段"""
         self.reset_counters()
         self.current_balance = 200  # 初始金額
+        self.select_words_for_stage(self.current_stage)
         self.update_balance_label()  # 顯示金額
         self.show_black_screen_before_next_word(stage="reward")
 
@@ -652,6 +710,7 @@ class LanguageProcessingTestSystem:
         print("run_penalty_stage")
         self.reset_counters()
         self.current_balance = 200  # 初始金額
+        self.select_words_for_stage(self.current_stage)
         self.update_balance_label()  # 顯示金額
         self.show_black_screen_before_next_word(stage="penalty")
 
@@ -668,6 +727,7 @@ class LanguageProcessingTestSystem:
         """運行獎懲階段"""
         self.reset_counters()
         self.current_balance = 200  # 初始金額
+        self.select_words_for_stage(self.current_stage)
         self.update_balance_label()  # 顯示金額
         self.show_black_screen_before_next_word(stage="reward_penalty")
 
@@ -706,7 +766,7 @@ class LanguageProcessingTestSystem:
             self.summary_data[f"lexical_{stage_prefix}"].append(result["word"])
             self.summary_data[f"keyresponse_{stage_prefix}"].append(result["response"])
 
-            if result["correct_response"] == self.types[2]:
+            if result["correct_response"] == self.pm_target_type:
                 self.summary_data[f"phonetic_ans_{stage_prefix}"].append(
                     result["correct_response"]
                 )
@@ -891,7 +951,6 @@ class LanguageProcessingTestSystem:
 
             # 保存 Excel 文件
             workbook.save(filename)
-            messagebox.showinfo("結果已保存", "結果已保存到Excel文件中。")
 
     def show_thank_you_message(self):
         """顯示銘謝詞並停留"""
