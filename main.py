@@ -345,12 +345,26 @@ class LanguageProcessingTestSystem:
     def check_answer(self, event, stage):
         """檢查答案"""
         print(f"check_answer stage:{stage}")
+        key = event.keysym.lower()
+
+        # 設置有效鍵
+        allowed_keys = ["a", "l", "space"]
+
+        # 無效按鍵處理：如果按下的鍵不在有效鍵列表中，則不處理
+        if key not in allowed_keys:
+            print(f"Ignored key: {key}, not in allowed keys: {allowed_keys}")
+            # 確保無效鍵不會打斷流程，繼續綁定按鍵事件
+            self.root.bind("<Key>", lambda event: self.check_answer(event, stage))
+            return  # 只忽略該次輸入，並等待下一次有效按鍵
+
+        # 有效按鍵處理
+        print(f"check_answer stage:{stage}")
         if self.timeout_id is not None:
             self.root.after_cancel(self.timeout_id)
             self.timeout_id = None
 
+        # 解除鍵盤綁定，只在有效按鍵時解除
         self.root.unbind("<Key>")
-        key = event.keysym.lower()
         reaction_time = int(
             (time.time() - self.start_time) * 1000
         )  # 將反應時間從秒轉為毫秒
@@ -512,11 +526,11 @@ class LanguageProcessingTestSystem:
         elif self.current_word in self.pm_targets:
             self.pm_target_count += 1
             if stage == "penalty" or stage == "reward_penalty":
-                print(f"在懲罰或獎懲階段才执行扣钱逻辑")
-                self.penalize_user()  # 只有在懲罰或獎懲階段才执行扣钱逻辑
+                print(f"在懲罰或獎懲階段才執行扣錢邏輯")
+                self.penalize_user()
                 return
 
-        self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
+            self.pm_target_accuracy = self.pm_target_correct / self.pm_target_count
         print(f"self.pm_target_count: {self.pm_target_count}")
         print(f"self.pm_target_correct: {self.pm_target_correct}")
         print(f"PM target accuracy: {self.pm_target_accuracy:.2%}")
