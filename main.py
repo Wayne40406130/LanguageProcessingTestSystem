@@ -439,7 +439,7 @@ class LanguageProcessingTestSystem:
         print(f"show_reward_message for stage: {stage}")
         self.show_black_screen()
         self.instructions_label = tk.Label(
-            self.root, text="獲得十元", font=self.font, fg="white", bg="black"
+            self.root, text=f"獲得十元\n目前金額: {self.current_balance}元", font=self.font, fg="white", bg="black"
         )
         self.instructions_label.pack(expand=True)
         self.root.update()
@@ -470,7 +470,7 @@ class LanguageProcessingTestSystem:
         print(f"show_penalty_message for stage: {stage}")
         self.show_black_screen()
         self.instructions_label = tk.Label(
-            self.root, text="扣除十元", font=self.font, fg="white", bg="black"
+            self.root, text=f"扣除十元\n目前金額: {self.current_balance}元", font=self.font, fg="white", bg="black"
         )
         self.instructions_label.pack(expand=True)
         self.root.update()
