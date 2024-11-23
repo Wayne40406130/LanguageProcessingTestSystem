@@ -18,7 +18,7 @@ class LanguageProcessingTestSystem:
         font_size=16,
         font_family="Microsoft JhengHei",
         stage_order=["formal", "reward", "penalty", "reward_penalty"],
-        config_path="words_config.json",
+        config_path=r"C:\Users\USER\Desktop\LanguageProcessingTestSystem-main\LanguageProcessingTestSystem-main\words_config.json",
     ):
         self.root = root
         self.root.title("詞彙判斷試驗系統")
@@ -199,7 +199,7 @@ class LanguageProcessingTestSystem:
 
         self.instructions_label = tk.Label(
             self.root,
-            text="歡迎來到詞彙判斷試驗系統",
+            text="測試",
             font=self.font,
             fg="white",
             bg="black",
@@ -263,14 +263,20 @@ class LanguageProcessingTestSystem:
         for widget in self.root.winfo_children():
             widget.pack_forget()
 
+        self.title_label = tk.Label(
+            self.root,
+            text="練習階段",
+            font=(self.font[0], self.font[1] + 30),  # 字體加大
+            fg="white",
+            bg="black",
+        )
+        self.title_label.pack(side="top", pady=50)  # 放置在頂部，並增加一些間距
+
         # 顯示前導詞
         self.instructions_label = tk.Label(
             self.root,
-            text="請判斷螢幕上的詞彙是否為真實存在的詞彙，\n"
-            "真實的詞彙請按a，非真詞彙請按l，\n"
-            "然而，每當詞彙注音含有「歌、機」時，\n"
-            "請您按下空白建。\n"
-            "若您了解此實驗的程序請按enter鍵開始。",
+            text="真實的詞彙請按「A」，非真實的詞彙請按「L」，\n"
+            "但當詞彙中的注音包含「ㄍ」或「ㄐ」時，請按「空白鍵」。\n",
             font=self.font,
             fg="white",
             bg="black",
@@ -278,7 +284,50 @@ class LanguageProcessingTestSystem:
         self.instructions_label.pack(expand=True)
 
         # 綁定Enter鍵事件以開始練習
-        self.root.bind("<Return>", self.show_any_key_screen)
+        self.root.bind("<Return>", self.show_fixed_words)
+
+    def show_fixed_words(self, event=None):
+        """顯示固定字詞，等待按鍵響應"""
+        self.root.unbind("<Return>")
+        self.fixed_words = ["民提", "橘子", "歌曲"]
+        self.fixed_word_index = 0  # 追踪目前顯示的字詞索引
+
+        # 開始顯示第一個固定字詞
+        self.show_next_fixed_word()
+
+    def show_next_fixed_word(self):
+        """依序顯示固定字詞"""
+        if self.fixed_word_index < len(self.fixed_words):
+            # 清空畫面
+            for widget in self.root.winfo_children():
+                widget.pack_forget()
+
+            # 顯示固定字詞
+            self.instructions_label = tk.Label(
+                self.root,
+                text=self.fixed_words[self.fixed_word_index],
+                font=self.font,
+                fg="white",
+                bg="black",
+            )
+            self.instructions_label.pack(expand=True)
+
+            # 綁定按鍵響應
+            self.root.bind("<Key>", self.handle_fixed_word_response)
+        else:
+            # 所有固定字詞顯示完成後，顯示 "按任意鍵開始"
+            self.show_any_key_screen(None)
+
+    def handle_fixed_word_response(self, event):
+        """處理固定字詞的按鍵響應"""
+        key = event.keysym.lower()
+        allowed_keys = ["a", "l", "space"]
+        if key in allowed_keys:
+            # 如果按鍵有效，繼續顯示下一個固定字詞
+            self.fixed_word_index += 1
+            self.show_next_fixed_word()
+        else:
+            print(f"Ignored key: {key}, not in allowed keys: {allowed_keys}")
 
     def show_any_key_screen(self, event):
         """顯示按任意鍵開始屏幕"""
@@ -439,7 +488,11 @@ class LanguageProcessingTestSystem:
         print(f"show_reward_message for stage: {stage}")
         self.show_black_screen()
         self.instructions_label = tk.Label(
-            self.root, text=f"獲得十元\n目前金額: {self.current_balance}元", font=self.font, fg="white", bg="black"
+            self.root,
+            text=f"獲得十元\n目前金額: {self.current_balance}元",
+            font=self.font,
+            fg="white",
+            bg="black",
         )
         self.instructions_label.pack(expand=True)
         self.root.update()
@@ -470,7 +523,11 @@ class LanguageProcessingTestSystem:
         print(f"show_penalty_message for stage: {stage}")
         self.show_black_screen()
         self.instructions_label = tk.Label(
-            self.root, text=f"扣除十元\n目前金額: {self.current_balance}元", font=self.font, fg="white", bg="black"
+            self.root,
+            text=f"扣除十元\n目前金額: {self.current_balance}元",
+            font=self.font,
+            fg="white",
+            bg="black",
         )
         self.instructions_label.pack(expand=True)
         self.root.update()
@@ -603,22 +660,18 @@ class LanguageProcessingTestSystem:
                 self.current_stage = "formal"
                 self.show_instructions(
                     "formal",
-                    "請判斷螢幕上的詞彙是否為真實存在的詞彙，\n"
-                    "真實的詞彙請按a，非真詞彙請按l，\n"
-                    "每當詞彙中注音含有「玻」與「的」時，\n"
-                    "請您按下空白建。\n"
-                    "若您了解此實驗的程序請按enter鍵開始。",
+                    "真實的詞彙請按「A」，非真實的詞彙請按「L」\n"
+                    "但當詞彙中的注音含有「ㄅ」或「ㄉ」時，請按「空白鍵」。\n",
                 )
             elif stage == "reward":
                 print("reward")
                 self.current_stage = "reward"
                 self.show_instructions(
                     "reward",
-                    "請判斷螢幕上的詞彙是否為真實存在的詞彙，\n"
-                    "真實的詞彙請按a，非真詞彙請按l，\n"
-                    "每當詞彙中注音含有「波」與「特」時，\n"
-                    "請您按下空白建。\n"
-                    "每當您正確辨認出含有「波」與「特」的詞彙時，\n"
+                    "真實的詞彙請按「A」，非真實的詞彙請按「L」\n"
+                    "但當詞彙中的注音含有「ㄆ」或「ㄊ」時，請按「空白鍵」。\n",
+                    "\n"
+                    "每當您正確辨認出含有「ㄆ」與「ㄊ」的詞彙時，\n"
                     "會顯示您獲得10元，且會累計顯示於左上角，\n"
                     "若您了解此實驗的程序請按enter鍵開始。",
                 )
@@ -628,10 +681,10 @@ class LanguageProcessingTestSystem:
                 self.show_instructions(
                     "penalty",
                     "請判斷螢幕上的詞彙是否為真實存在的詞彙，\n"
-                    "真實的詞彙請按a，非真詞彙請按l，\n"
-                    "每當詞彙中注音含有「摸」與「呢」時，\n"
-                    "請您按下空白建。\n"
-                    "每當您未正確辨認出含有「摸」與「呢」的詞彙時，\n"
+                    "真實的詞彙請按「A」，非真實的詞彙請按「L」\n"
+                    "但當詞彙中的注音含有「ㄇ」或「ㄋ」時，請按「空白鍵」。\n",
+                    "\n"
+                    "每當您未正確辨認出含有「ㄇ」與「ㄋ」的詞彙時，\n"
                     "會顯示您被扣除10元，且會累計顯示於左上角，\n"
                     "若您了解此實驗的程序請按enter鍵開始。",
                 )
@@ -641,12 +694,12 @@ class LanguageProcessingTestSystem:
                 self.show_instructions(
                     "reward_penalty",
                     "請判斷螢幕上的詞彙是否為真實存在的詞彙，\n"
-                    "真實的詞彙請按a，非真詞彙請按l，\n"
-                    "每當詞彙中注音含有「佛」與「了」時，\n"
-                    "請您按下空白建。\n"
-                    "每當您正確辨認出含有「佛」的詞彙時，\n"
+                    "真實的詞彙請按「A」，非真實的詞彙請按「L」\n"
+                    "但當詞彙中的注音含有「ㄈ」或「ㄌ」時，請按「空白鍵」。\n",
+                    "\n"
+                    "每當您正確辨認出含有「ㄈ」的詞彙時，\n"
                     "會顯示您獲得10元，且會累計顯示於左上角，\n"
-                    "每當您未正確辨認出含有「了」的詞彙時，\n"
+                    "每當您未正確辨認出含有「ㄌ」的詞彙時，\n"
                     "會顯示您被扣除10元，且會累計顯示於左上角，\n"
                     "若您了解此實驗的程序請按enter鍵開始。",
                 )
